@@ -4,14 +4,7 @@ import React from 'react'
 const header = () => {
   return (
     <div>
-     <SignedOut>
-              <SignInButton/>
-              <SignUpButton>
-              </SignUpButton>
-            </SignedOut>
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
+     Header
     </div>
   )
 }
