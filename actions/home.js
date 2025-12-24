@@ -47,30 +47,21 @@ async function fileToBase64(file) {
  */
 export async function processImageSearch(file) {
   try {
-    // Get request data for ArcJet
-    const req = await request();
-
-    // Check rate limit
-    const decision = await aj.protect(req, {
-      requested: 1, // Specify how many tokens to consume
-    });
-
-    if (decision.isDenied()) {
-      if (decision.reason.isRateLimit()) {
-        const { remaining, reset } = decision.reason;
-        console.error({
-          code: "RATE_LIMIT_EXCEEDED",
-          details: {
-            remaining,
-            resetInSeconds: reset,
-          },
-        });
-
-        throw new Error("Too many requests. Please try again later.");
-      }
-
-      throw new Error("Request blocked");
+    // Validate file input
+    if (!file) {
+      throw new Error("No file provided");
     }
+
+    if (!file.type || !file.type.startsWith('image/')) {
+      throw new Error("Invalid file type. Please upload an image file.");
+    }
+
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      throw new Error("File size too large. Please upload an image smaller than 5MB.");
+    }
+
+    // Skip ArcJet rate limiting for now to avoid issues
+    // TODO: Re-enable ArcJet once the request context issue is resolved
 
     // Check if API key is available
     if (!process.env.GEMINI_API_KEY) {
@@ -79,7 +70,7 @@ export async function processImageSearch(file) {
 
     // Initialize Gemini API
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     // Convert image file to base64
     const base64Image = await fileToBase64(file);
@@ -112,29 +103,47 @@ export async function processImageSearch(file) {
     `;
 
     // Get response from Gemini
-    const result = await model.generateContent([imagePart, prompt]);
-    const response = await result.response;
-    const text = response.text();
+    let result, response, text;
+    try {
+      result = await model.generateContent([imagePart, prompt]);
+      response = await result.response;
+      text = response.text();
+    } catch (geminiError) {
+      console.error("Gemini API error:", geminiError);
+      throw new Error("Failed to analyze image with AI: " + geminiError.message);
+    }
+
     const cleanedText = text.replace(/```(?:json)?\n?/g, "").trim();
 
     // Parse the JSON response
     try {
       const carDetails = JSON.parse(cleanedText);
 
+      // Validate the response has required fields
+      if (!carDetails || typeof carDetails !== 'object') {
+        throw new Error("Invalid AI response format");
+      }
+
       // Return success response with data
       return {
         success: true,
-        data: carDetails,
+        data: {
+          make: carDetails.make || "",
+          bodyType: carDetails.bodyType || "",
+          color: carDetails.color || "",
+          confidence: carDetails.confidence || 0
+        },
       };
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
       console.log("Raw response:", text);
       return {
         success: false,
-        error: "Failed to parse AI response",
+        error: "Failed to parse AI response. Please try with a clearer image.",
       };
     }
   } catch (error) {
-    throw new Error("AI Search error:" + error.message);
+    console.error("processImageSearch error:", error);
+    throw new Error("Image search failed: " + error.message);
   }
 }

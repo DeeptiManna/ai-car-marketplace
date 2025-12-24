@@ -29,22 +29,37 @@ export function HomeSearch() {
   // Handle process result and errors with useEffect
   useEffect(() => {
     if (processResult?.success) {
+      console.log("✅ Image search successful:", processResult.data);
+      
       const params = new URLSearchParams();
 
       // Add extracted params to the search
-      if (processResult.data.make) params.set("make", processResult.data.make);
-      if (processResult.data.bodyType)
+      if (processResult.data.make) {
+        params.set("make", processResult.data.make);
+        console.log("🏭 Detected make:", processResult.data.make);
+      }
+      if (processResult.data.bodyType) {
         params.set("bodyType", processResult.data.bodyType);
-      if (processResult.data.color)
+        console.log("🚗 Detected body type:", processResult.data.bodyType);
+      }
+      if (processResult.data.color) {
         params.set("color", processResult.data.color);
+        console.log("🎨 Detected color:", processResult.data.color);
+      }
 
+      console.log("🔗 Redirecting to:", `/cars?${params.toString()}`);
+      
       // Redirect to search results
       router.push(`/cars?${params.toString()}`);
+    } else if (processResult && !processResult.success) {
+      console.error("❌ Image search failed:", processResult.error);
+      toast.error("Image search failed: " + processResult.error);
     }
   }, [processResult, router]);
 
   useEffect(() => {
     if (processError) {
+      console.error("❌ Process error:", processError);
       toast.error(
         "Failed to analyze image: " + (processError.message || "Unknown error")
       );
@@ -105,8 +120,19 @@ export function HomeSearch() {
       return;
     }
 
-    // Use the processImageFn from useFetch hook
-    await processImageFn(searchImage);
+    console.log("🔍 Starting image search with file:", {
+      name: searchImage.name,
+      type: searchImage.type,
+      size: searchImage.size
+    });
+
+    try {
+      // Use the processImageFn from useFetch hook
+      await processImageFn(searchImage);
+    } catch (error) {
+      console.error("❌ Image search error:", error);
+      toast.error("Image search failed: " + error.message);
+    }
   };
 
   return (

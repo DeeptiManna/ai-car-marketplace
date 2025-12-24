@@ -81,6 +81,7 @@ export default async function Home() {
                     }
                     alt={make.name}
                     fill
+                    sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 16vw"
                     style={{ objectFit: "contain" }}
                   />
                 </div>
